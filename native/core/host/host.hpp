@@ -20,7 +20,7 @@
 // ON|OFF, BUFFER n, IAMALIVE, MODE; broadcast statuses (BCAST ...) once the
 // client has sent a BCAST command. Hand bursts (docs/arq.md §9): HAND SEND ref
 // tag d channel hex16, HAND LISTEN d tag ack channel..., HAND CANCEL; REF / HAND
-// lines (REF, HAND SENT/DROPPED, HAND c hex16 snr dt, HAND SHORT ms, HAND END)
+// lines (REF, HAND SENT/DROPPED, HAND c hex16 snr dt, HAND SHORT ms, HAND END [EXPIRED])
 // go to a client that has sent DATA2G ON or a HAND command.
 #pragma once
 

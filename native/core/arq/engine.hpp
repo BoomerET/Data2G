@@ -312,6 +312,11 @@ public:
     std::int64_t ptt_delay() const { return ptt_delay_; }  // samples of silence before each burst's audio
     // Session stage, from the next burst keyed: EngineConfig's ptt_delay_s.
     void set_ptt_delay(double s) { ptt_delay_ = static_cast<std::int64_t>(s * config::FS); }
+    // Seconds from this engine's sample clock to RF for my own audio: keying, the TX lead, the card's
+    // output latency, capture backlog. Any thread (the station's transmit thread measures it per
+    // burst); Hand timing allows for it on both ends (engine.py's tx_latency_s, issue #200).
+    void set_tx_latency(double s) { tx_latency_ = s; }
+    double tx_latency() const { return tx_latency_; }
     // Session stage, from the next session on: EngineConfig's noise_rule.
     void set_noise_rule(double w) { cfg_.noise_rule = w; }
     const std::deque<TxBurstPtr>& extra() const { return extra_; }
@@ -409,6 +414,7 @@ private:
     receiver::Receiver receiver_;
     receiver::NoiseProfile noise_;  // the passband's noise between bursts (recorded with each burst heard)
     std::atomic<std::int64_t> ptt_delay_;  // set_ptt_delay on the session stage; read on both
+    std::atomic<double> tx_latency_{0.0};
     std::optional<Recorder> rec_;
     std::int64_t n_ = 0;
     std::optional<Tx> tx_;

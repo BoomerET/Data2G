@@ -181,6 +181,10 @@ class Engine:
         self.receiver = Receiver(self.accept, cpm_grids=tuple(cpm.GRIDS))
         self.noise = NoiseProfile()  # the passband's noise between bursts (recorded with each burst heard)
         self.ptt_delay = int(ptt_delay_s * FS)
+        # seconds from this engine's sample clock to RF for my own audio: keying, the TX lead, the
+        # card's output latency, capture backlog. The native station measures it per burst; Hand
+        # timing allows for it on both ends (issue #200).
+        self.tx_latency_s = 0.0
         self.rec = Recorder(record_dir, self.call) if record_dir else None
         self.n = 0  # samples processed
         self.tx = None  # [burst, audio, position]
@@ -353,7 +357,7 @@ class Engine:
             raise ValueError("bad payload or delay")
         payload &= (1 << hand.PAYLOAD) - 1  # 16 hex digits, the top bit ignored (docs/arq.md §9)
         end, cfo, _ = self.hand_refs[ref]
-        target = int(round((end + d_s) * FS)) - self.ptt_delay
+        target = int(round((end + d_s - self.tx_latency_s) * FS)) - self.ptt_delay
         if target < self.n:
             raise ValueError("the slot has passed")
         audio = np.concatenate([np.zeros(self.ptt_delay), hand.tx_audio(tag, payload, channel, cfo)])
@@ -411,7 +415,7 @@ class Engine:
         if not hl["open"]:
             if self.n - hl["armed"] > HAND_ARM_EXPIRE_S * FS:
                 self._hand_listen = None
-                self._hand_event("HAND END")
+                self._hand_event("HAND END EXPIRED")
             return
         if self.n + k > hl["lo"]:
             if not hl["buf"]:
@@ -662,7 +666,7 @@ class Engine:
                 hl = self._hand_listen
                 if hl is not None and not hl["open"] and any(a is not None and ack_tag(a) == hl["ack"] for _, a in sent):
                     # the burst carrying the listen's named frame ended: its window opens
-                    a = self.n + n  # its end sample (self.n advances at the step's end)
+                    a = self.n + n + int(round(self.tx_latency_s * FS))  # its end on air (self.n advances at the step's end)
                     hl.update(open=True, buf=[], anchor=a,
                               lo=a + hl["d"] - hand.SEARCH_SAMPLES,
                               hi=a + hl["d"] + hand.SEARCH_SAMPLES + hand.LEN_SAMPLES)

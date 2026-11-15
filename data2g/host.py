@@ -48,7 +48,7 @@ dst bw, DISCONNECTED (DATA2G ON: DISCONNECTED reason [detail], docs/arq.md
 MODE submode; broadcast statuses (BCAST n HEARD [call] snr, BCAST n LOST k,
 BCAST * MISSED submode n_cw [snr], BCAST n DROPPED k) once the client has
 sent a BCAST command; hand lines (REF id end offset snr per decoded burst,
-HAND SENT/DROPPED c, HAND c hex16 snr dt, HAND SHORT ms, HAND END) once it has
+HAND SENT/DROPPED c, HAND c hex16 snr dt, HAND SHORT ms, HAND END [EXPIRED]) once it has
 sent a HAND command or DATA2G ON, so VARA clients never see them.
 
     data2g-host --mycall W1AW --input-device USB --output-device USB --rigctld-port 4532
@@ -642,6 +642,7 @@ def serve(a, pa, stop: threading.Event | None = None):
     nin, nout = audio.channels(pa, a.input_device, "input"), audio.channels(pa, a.output_device, "output")
     inp = audio.Capture(pa, nin, a.sample_rate, a.input_device)
     out = audio.Player(pa, nout, a.sample_rate, a.output_device, a.tx_lead_ms / 1000)
+    engine.tx_latency_s = a.tx_lead_ms / 1000 + out.s.get_output_latency()  # ponytail: no PTT call time (native measures it)
     host.output_volume = a.output_volume
     stop = stop or threading.Event()
     if threading.current_thread() is threading.main_thread():

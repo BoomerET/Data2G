@@ -20,8 +20,9 @@
 namespace data2g::app {
 
 Transmitter::Transmitter(audio::PlaybackFifo& play, int rate, double gain, rig::Keyer::Ptt ptt,
-                         rig::Keyer::MustRelease must_release, double off_delay_s, std::function<void(bool)> on_ptt)
-    : play_(play), rate_(rate), gain_(gain), on_ptt_(std::move(on_ptt)),
+                         rig::Keyer::MustRelease must_release, double off_delay_s, std::function<void(bool)> on_ptt,
+                         std::function<void(double)> on_latency)
+    : play_(play), rate_(rate), gain_(gain), on_ptt_(std::move(on_ptt)), on_latency_(std::move(on_latency)),
       keyer_(std::move(ptt), play, off_delay_s, [](const std::string& s) { log_line(ERROR, s); }, std::move(must_release)),
       thread_(&Transmitter::run, this) {}
 
@@ -36,10 +37,11 @@ void Transmitter::stop() {
     if (thread_.joinable()) thread_.join();
 }
 
-void Transmitter::submit(std::shared_ptr<const std::vector<double>> burst) {
+void Transmitter::submit(std::shared_ptr<const std::vector<double>> burst, double behind_s) {
+    const auto t = std::chrono::steady_clock::now() - std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(behind_s));
     {
         std::lock_guard lock(mu_);
-        q_.push_back({std::move(burst), generation_.load()});
+        q_.push_back({std::move(burst), generation_.load(), t});
     }
     cv_.notify_one();
 }
@@ -81,6 +83,9 @@ void Transmitter::run() {
             for (std::size_t pos = 0; pos < a.size() && !stopped(); pos += block) {
                 while (play_.queued() > ahead && !stopped()) std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 if (stopped()) break;
+                if (pos == 0 && on_latency_)  // what is queued (the lead) and the card go out ahead of this block
+                    on_latency_(std::chrono::duration<double>(std::chrono::steady_clock::now() - job.engine_t).count() +
+                                static_cast<double>(play_.queued()) / rate_ + play_.output_latency());
                 auto y = interp(std::span<const double>(a).subspan(pos, std::min(block, a.size() - pos)));
                 const double gain = gain_;
                 for (auto& v : y) v = std::clamp(v * gain, -1.0, 1.0);

@@ -835,7 +835,7 @@ Engine::Done Engine::process(Block& b) {
                     return ack_tag(pa.second) == hand_listen_->ack; })) {
                 // the burst carrying the listen's named frame ended: its Hand window opens
                 auto& hl = *hand_listen_;
-                const std::int64_t a = n_ + static_cast<std::int64_t>(n);
+                const std::int64_t a = n_ + static_cast<std::int64_t>(n) + static_cast<std::int64_t>(std::nearbyint(tx_latency_ * config::FS));  // its end on air
                 hl.open = true;
                 hl.buf.clear();
                 hl.anchor = a;
@@ -1016,7 +1016,7 @@ void Engine::hand_send(int ref, int tag, double d_s, int channel, std::uint64_t 
     if (channel < 0 || channel >= hand::N_CHANNELS || tag < 0 || tag > 255) throw std::invalid_argument("bad channel or tag");
     if (!(d_s > 0 && d_s < HAND_ARM_EXPIRE_S)) throw std::invalid_argument("bad delay");
     payload &= (std::uint64_t{1} << hand::PAYLOAD) - 1;  // 16 hex digits, the top bit ignored (docs/arq.md §9)
-    const auto first = static_cast<std::int64_t>(std::nearbyint((it->second.end + d_s) * config::FS)) - ptt_delay_;
+    const auto first = static_cast<std::int64_t>(std::nearbyint((it->second.end + d_s - tx_latency_) * config::FS)) - ptt_delay_;
     if (first < n_) throw std::invalid_argument("the slot has passed");
     std::vector<double> audio(static_cast<std::size_t>(ptt_delay_), 0.0);
     const auto x = hand::tx_audio(tag, payload, channel, it->second.cfo);
@@ -1083,7 +1083,7 @@ void Engine::hand_collect(std::span<const double> x) {
     if (!hl.open) {
         if (static_cast<double>(n_ - hl.armed) > HAND_ARM_EXPIRE_S * config::FS) {
             hand_listen_.reset();
-            hand_event("HAND END");
+            hand_event("HAND END EXPIRED");
         }
         return;
     }

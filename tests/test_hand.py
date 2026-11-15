@@ -62,15 +62,15 @@ def hand_round(e: Engine, d_s: float, tag: int, channels: list[int], hands=(), g
 
     -> (lines, keyed, anchor): the round's REF/HAND lines, the block-start samples
     at which the radio was keyed after the window opened, and the anchor burst's
-    end sample (the window's zero point)."""
+    end sample by the engine (the window's zero point, less tx_latency_s)."""
     if arm:
         e.hand_listen(d_s, tag, ACK, channels)
     for acks in [() if a is None else (a,) for a in decoys] + [(ACK,)]:  # the window opens at the last's end
         key(e, np.zeros(3 * BLOCK), acks)
         for _ in range(3):
             e.step(np.zeros(BLOCK))
-    anchor = e.n  # its end sample: an exact whole number of blocks
-    hi = anchor + int(round(d_s * FS)) + hand.SEARCH_SAMPLES + hand.LEN_SAMPLES
+    anchor = e.n  # the engine's end of it: an exact whole number of blocks
+    hi = anchor + int(round((d_s + e.tx_latency_s) * FS)) + hand.SEARCH_SAMPLES + hand.LEN_SAMPLES
     y = np.zeros(hi - anchor + 3 * BLOCK)
     for c, payload, start in hands:
         x = hand.modulate(tag, hand.payload_bits(payload), c)
@@ -314,7 +314,7 @@ def test_hand_args_are_strict():
 
 def test_hand_listen_expiry_and_cancel():
     """An armed HAND LISTEN that never gets its burst gives up after
-    HAND_ARM_EXPIRE_S of engine time with one lone HAND END, and a listen can be
+    HAND_ARM_EXPIRE_S of engine time with one lone HAND END EXPIRED, and a listen can be
     armed again afterwards; HAND CANCEL ends the same wait early, always answers
     OK on the port, and never raises when there is nothing to cancel (docs/arq.md
     §9)."""
@@ -332,7 +332,7 @@ def test_hand_listen_expiry_and_cancel():
         if i == int(29 * FS / BLOCK):
             assert e.take_hand_events() == []  # 29 s in: still waiting for its burst
     assert not any(keyed)  # and it keys nothing while it waits
-    assert e.take_hand_events() == ["HAND END"]  # one line, once
+    assert e.take_hand_events() == ["HAND END EXPIRED"]  # one line, once
     assert e.take_hand_events() == []  # and nothing after it: the listen is gone
     e.hand_listen(3.0, 0x5A, ACK, [20])  # armed again, and the reply is about that one
     h.out_cmd.clear()
@@ -407,6 +407,26 @@ def test_hand_dropped_past_the_slot():
         _, ptt = e.step(np.zeros(BLOCK))
         assert not ptt
     assert e.take_hand_events() == []
+
+
+def test_hand_timing_allows_for_tx_latency():
+    """My own audio reaches the air tx_latency_s after the engine plays it (issue #200):
+    a Hand keys that much earlier than its slot, and a window opens that much after the
+    engine's end of its anchor burst, so a Hand on time on air decodes with dt near 0."""
+    e = ref_at(Engine("W1AW", seed=1), 5.0)
+    e.hand_send(1, 0x5A, 3.0, 20, 0x123)
+    up = e._hand_tx[0]
+    e.hand_cancel()
+    e.tx_latency_s = 0.8
+    e.hand_send(1, 0x5A, 3.0, 20, 0x123)
+    assert up - e._hand_tx[0] == int(round(0.8 * FS))
+    e.hand_cancel()
+    e.take_hand_events()
+
+    # 0.8 s past the slot by the engine's end: outside the +-0.6 s search unless the window moves
+    lines, _, _ = hand_round(e, 3.0, 0x5A, [20], [(20, 0x1234567, 3.8)], noise=0.1)
+    hands = [l for l in lines if l.startswith("HAND 20 ")]
+    assert len(hands) == 1 and abs(float(hands[0].split()[-1])) < 50, lines
 
 
 def test_hand_listen_holds_its_head():
@@ -583,10 +603,10 @@ def test_hand_lines_are_gated_to_the_client_that_asked():
     assert gated() == ([], [])  # a plain client: no REF, no HAND END of a round it never asked for
     refs, hands = gated("DATA2G ON")
     assert refs and refs[0].startswith("REF 1 "), refs  # same station, known client
-    assert hands == ["HAND END"], hands
+    assert hands == ["HAND END EXPIRED"], hands
     refs, hands = gated("HAND LISTEN 3.0 91 1234 21", arm_listen=False)  # the command alone gates
     assert refs and refs[0].startswith("REF 1 "), refs
-    assert hands == ["HAND END"], hands
+    assert hands == ["HAND END EXPIRED"], hands
 
     e = Engine("W1AW", seed=1)
     h = Host(e)
