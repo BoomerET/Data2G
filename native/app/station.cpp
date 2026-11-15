@@ -429,7 +429,8 @@ void Station::engine_loop() {
                 window = now;
             }
             if (out.tx_abort) tx_->abort();
-            if (out.tx_burst) tx_->submit(std::move(out.tx_burst));
+            // the burst's first sample is this block's first: the block, and what was captured since, behind real time
+            if (out.tx_burst) tx_->submit(std::move(out.tx_burst), cap_->backlog_s() + static_cast<double>(block) / config::FS);
             watch_counters();
             if (a_.rx_stall_ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(a_.rx_stall_ms));
         }
@@ -665,7 +666,14 @@ void Station::start() {
 
         running_ = true;
         tx_ = std::make_unique<Transmitter>(*play_, rate_, std::pow(10.0, a_.output_volume / 20), std::move(ptt), std::move(must_release),
-                                            a_.ptt_off_delay_ms / 1000.0, [this](bool on) { announce_ptt(on); });
+                                            a_.ptt_off_delay_ms / 1000.0, [this](bool on) { announce_ptt(on); },
+                                            [this, avg = -1.0](double s) mutable {
+                                                // ponytail: plain average; a burst queued behind another reads high. The input
+                                                // latency is left out (a period or so). Hand timing uses it (issue #200).
+                                                avg = avg < 0 ? s : 0.7 * avg + 0.3 * s;
+                                                logf(DEBUG, "TX latency %.3f s (average %.3f)", s, avg);
+                                                engine_->set_tx_latency(avg);
+                                            });
         engine_thread_ = std::thread(&Station::engine_loop, this);
     } catch (...) {
         running_ = true;  // so stop() undoes whatever got started

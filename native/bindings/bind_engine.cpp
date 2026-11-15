@@ -177,6 +177,7 @@ void bind_engine(py::module_& m) {
             return t ? t->audio.size() : 0;
         })
         .def_property_readonly("ptt_delay", &PyEngine::ptt_delay)
+        .def_property("tx_latency_s", &PyEngine::tx_latency, &PyEngine::set_tx_latency)
         .def_property_readonly("_extra", [](const PyEngine& self) {
             py::list out;
             for (const auto& b : self.extra()) out.append(burst_py(b));

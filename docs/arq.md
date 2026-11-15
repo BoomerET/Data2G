@@ -899,9 +899,12 @@ As built (data2g/arq/policy.py):
       width, the slot already past, or a Hand already waiting. While one waits, this host starts no CQ, broadcast, ID
       or KISS burst of its own. OK: then
       `HAND SENT c` when it keys, or `HAND DROPPED c` if the radio was busy
-      more than 0.5 s past the slot.
+      more than 0.5 s past the slot. The host starts the audio early by its
+      own TX latency (keying, --tx-lead-ms, the card's output latency), which
+      the native host measures on every burst it sends; HAND LISTEN's window
+      allows for the listener's the same way.
     - **HAND LISTEN d tag ack channel [channel...]**: open the window d
-      seconds after the end of the burst carrying the KISS frame sent with
+      seconds after the end on air of the burst carrying the KISS frame sent with
       ACKMODE tag `ack` (its 2 bytes as 4 hex digits): the frame with the
       net's call. Naming the burst keeps a CQ, ID, session burst or another
       client's frame sent first from moving the window (d at least 1: the
@@ -922,7 +925,7 @@ As built (data2g/arq/policy.py):
       window's head could not be captured (my own burst ran into it):
       `HAND SHORT ms`, ms of it missed, before
       `HAND END`; an armed listen whose burst never went out gives up after
-      30 s with `HAND END`. Send the command before queuing the frame that
+      30 s with `HAND END EXPIRED`. Send the command before queuing the frame that
       anchors the window: the KISS port may send it at once.
     - **HAND CANCEL**: stops a Hand waiting to go and an armed or open
       listen; the window ends with `HAND END`. Always OK.

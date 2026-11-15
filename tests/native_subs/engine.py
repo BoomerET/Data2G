@@ -79,6 +79,7 @@ def substitutions(native):
         _tx_kiss = property(lambda s: s._n.tx_kiss, lambda s, v: setattr(s._n, "tx_kiss", v))
         _test_acks = property(lambda s: s._n.test_acks, lambda s, v: setattr(s._n, "test_acks", v))
         _cw_until = property(lambda s: s._n.cw_until)
+        tx_latency_s = property(lambda s: s._n.tx_latency_s, lambda s, v: setattr(s._n, "tx_latency_s", v))
 
         @property
         def _hand_tx(self):  # engine.py's [first audio sample, audio, channel]
