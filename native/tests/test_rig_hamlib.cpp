@@ -164,12 +164,15 @@ void test_cm108() {
     check::is_true(missing.find("/nonexistent/data2g-hidraw") != std::string::npos && missing.find("udev") != std::string::npos,
                    "cm108: the error names the device and the likely fix: " + missing);
     check::is_true(missing.find('\n') == std::string::npos, "cm108: one line");
-    // A file that opens but is no hidraw device: Hamlib's CM108 check refuses it.
+#ifdef __linux__
+    // A file that opens but is no hidraw device: Hamlib's CM108 check (a
+    // Linux hidraw ioctl; elsewhere it opens any path) refuses it.
     const std::string plain = "/tmp/data2g-test-not-hidraw";
     std::fclose(std::fopen(plain.c_str(), "w"));
     cfg.ptt_device = plain;
     check::is_true(!open_error().empty(), "cm108: a device that isn't a CM108 is refused");
     std::remove(plain.c_str());
+#endif
     auto rig = rig::make_hamlib_backend(cfg);
     check::is_true(rig->description().find("PTT on GPIO3") != std::string::npos, "description names the pin: " + rig->description());
 }
