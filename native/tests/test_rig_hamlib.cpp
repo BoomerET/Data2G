@@ -14,6 +14,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include <mutex>
 #include <thread>
@@ -136,6 +137,41 @@ void test_serial_model_without_a_device() {
     // rigerror() hands back a trace backlog; only the error line belongs here.
     check::is_true(error.find('\n') == std::string::npos, "open error is one line: " + error);
     check::is_true(rig->description().find("IC-7300") != std::string::npos, "description names the model: " + rig->description());
+}
+
+// PTT by a CM108's GPIO: Hamlib opens the given hidraw device at rig_open
+// and refuses one that isn't there or isn't a CM108, so a dummy rig that
+// opens cleanly without it fails here only if the settings reached Hamlib.
+void test_cm108() {
+    check::current_step = "cm108";
+    rig::HamlibConfig cfg;
+    cfg.model = rig::MODEL_DUMMY;
+    cfg.device = "";
+    cfg.ptt_method = rig::PttMethod::Cm108;
+    cfg.ptt_device = "/nonexistent/data2g-hidraw";
+    cfg.ptt_gpio = 3;
+    const auto open_error = [&] {
+        auto rig = rig::make_hamlib_backend(cfg);
+        try {
+            rig->open();
+        } catch (const rig::RigError& e) {
+            return std::string(e.what());
+        }
+        return std::string();
+    };
+    const std::string missing = open_error();
+    check::is_true(!missing.empty(), "cm108: a missing hidraw device fails the open");
+    check::is_true(missing.find("/nonexistent/data2g-hidraw") != std::string::npos && missing.find("udev") != std::string::npos,
+                   "cm108: the error names the device and the likely fix: " + missing);
+    check::is_true(missing.find('\n') == std::string::npos, "cm108: one line");
+    // A file that opens but is no hidraw device: Hamlib's CM108 check refuses it.
+    const std::string plain = "/tmp/data2g-test-not-hidraw";
+    std::fclose(std::fopen(plain.c_str(), "w"));
+    cfg.ptt_device = plain;
+    check::is_true(!open_error().empty(), "cm108: a device that isn't a CM108 is refused");
+    std::remove(plain.c_str());
+    auto rig = rig::make_hamlib_backend(cfg);
+    check::is_true(rig->description().find("PTT on GPIO3") != std::string::npos, "description names the pin: " + rig->description());
 }
 
 int free_port() {
@@ -288,6 +324,7 @@ int main() {
     test_dummy();
     test_dummy_all_settings();
     test_serial_model_without_a_device();
+    test_cm108();
     test_unreachable_rigctld_exit();
     test_net_rigctl();
     return check::report("rig hamlib");
