@@ -239,6 +239,7 @@ Software-defined radios driven by ExpertSDR, Thetis, AetherSDR and similar progr
 
 - Use upper sideband, or your radio's USB data mode.
 - Open the filters. Full-speed modes use audio from about 350 to 2700 Hz. A receive or transmit filter narrower than that will slow you down or stop the wide modes working at all. A 500 Hz session sits between about 1250 and 1800 Hz.
+- Both stations must be tuned to within 150 Hz of each other. The modem searches no further than that, so a station further off is not heard at all. Closer is better: an offset pushes the edge of a wide signal into the filter skirts, and a radio that drifts during a session uses up the rest of the margin.
 - Turn off speech processing, transmit equalisation, noise reduction, noise blankers and notch filters for the data input. They are built for voice and damage data signals.
 - Set the transmit level so that the radio reaches the power you want with little or no ALC action. Overdriving makes your signal wider and harder to decode, not stronger.
 - Set the receive level using the meter on the right edge of the waterfall (section 7). Band noise should sit well up the bar in the green, and **CLIP** should never appear.
