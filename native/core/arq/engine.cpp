@@ -512,22 +512,30 @@ TxBurstPtr Engine::cw_burst(const std::string& call) const {
     return b;
 }
 
-// A session's burst -> the bursts to send back to back: an ID first when one
-// is due, or the pending last ID after a closed session's final burst (its DISC_ACK).
-std::vector<TxBurstPtr> Engine::with_id(const TxBurstPtr& burst, double t) {
+// A session's burst -> (the bursts to send back to back, the session's among them): an ID first when one
+// is due, or the pending last ID after a closed session's final burst (its DISC_ACK). A nod behind an ID
+// would miss its slot (engine.py _with_id): it goes as the control it stands for.
+std::pair<std::vector<TxBurstPtr>, TxBurstPtr> Engine::with_id(TxBurstPtr burst, double t) {
     if (session_->state == SessionState::CLOSED && id_pending_) {
         id_pending_.reset();
         auto out = ids(*session_, false);
         out.insert(out.begin(), burst);
-        return out;
+        return {out, burst};
     }
     if (session_ == id_for_ && id_due_ && t >= *id_due_) {
         id_due_ = t + id_interval_s;
+        if (burst->nod) {
+            log_write(LOG, INFO, format("TX b%d: an ID goes ahead, so its nod goes as its control",
+                                        static_cast<int>(pmod(burst->burst_seq, BURST_MOD))));
+            auto full = std::make_shared<TxBurst>(*burst);
+            full->nod.reset();
+            burst = std::move(full);
+        }
         auto out = ids(*session_, true);
         out.push_back(burst);
-        return out;
+        return {out, burst};
     }
-    return {burst};
+    return {{burst}, burst};
 }
 
 bool Engine::cw_ready(double t) const { return cw_id != "off" && cw_at_ && t >= *cw_at_; }
@@ -777,8 +785,7 @@ Engine::Done Engine::process(Block& b) {
             missed_energy();
             id_check(t);
             if (burst) {
-                bursts = with_id(burst, t);
-                main = burst;
+                std::tie(bursts, main) = with_id(burst, t);
             } else if (id_pending_ && t >= id_pending_t_ && hand_free) {
                 bursts = ids(*id_pending_, false);
                 id_pending_.reset();

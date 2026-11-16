@@ -389,7 +389,7 @@ private:
     bool cq(ModemRx& rx);
     TxBurstPtr id_frame(const Session& s) const;
     void id_check(double t);
-    std::vector<TxBurstPtr> with_id(const TxBurstPtr& burst, double t);
+    std::pair<std::vector<TxBurstPtr>, TxBurstPtr> with_id(TxBurstPtr burst, double t);
     std::vector<TxBurstPtr> ids(const Session& s, bool ahead) const;  // its ID as cw_id has it
     TxBurstPtr cw_burst(const std::string& call) const;
     std::vector<TxBurstPtr> cw_ahead(std::vector<TxBurstPtr> bursts, double t) const;  // outside a session
