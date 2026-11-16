@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 
+#include <algorithm>
 #include <string_view>
 
 #include <utility>
@@ -124,7 +125,7 @@ Args from_settings(const QVariantMap& m, Args a) {
     a.tci = m.value("tci", a.tci).toBool();
     a.tci_host = str("tci_host", a.tci_host);
     a.sample_rate = m.value("sample_rate", a.sample_rate).toInt();
-    a.output_volume = m.value("output_volume", a.output_volume).toDouble();
+    a.output_volume = std::min(m.value("output_volume", a.output_volume).toDouble(), 0.0);  // above 0 dB only clips (an older save)
     a.ptt_on_delay_ms = m.value("ptt_on_delay_ms", a.ptt_on_delay_ms).toInt();
     a.ptt_off_delay_ms = m.value("ptt_off_delay_ms", a.ptt_off_delay_ms).toInt();
     a.rig = m.value("rig", a.rig).toBool();

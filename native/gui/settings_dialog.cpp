@@ -357,7 +357,7 @@ QWidget* SettingsDialog::rig_tab(const app::Args& a, const QStringList& inputs, 
     audio->addRow(tr("Sample rate (Hz)"), rate_);
     volume_ = new QDoubleSpinBox;
     volume_->setObjectName(QStringLiteral("output_volume"));
-    volume_->setRange(-60.0, 20.0);
+    volume_->setRange(-60.0, 0.0);  // 0 dB is full scale: above it only clips
     volume_->setDecimals(1);
     volume_->setSuffix(tr(" dB"));
     volume_->setValue(a.output_volume);

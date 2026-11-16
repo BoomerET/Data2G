@@ -214,7 +214,7 @@ Args parse(int argc, char** argv, Args a, const char* prog, const char* extra_he
         {"--input-device", [&](auto&, auto& v) { a.input_device = v; }},
         {"--output-device", [&](auto&, auto& v) { a.output_device = v; }},
         {"--sample-rate", [&](auto& o, auto& v) { a.sample_rate = i_(o, v); }},
-        {"--output-volume", [&](auto& o, auto& v) { a.output_volume = d_(o, v); }},
+        {"--output-volume", [&](auto& o, auto& v) { a.output_volume = std::min(d_(o, v), 0.0); }},  // above 0 dB only clips
         {"--ptt-on-delay-ms", [&](auto& o, auto& v) { a.ptt_on_delay_ms = i_(o, v); }},
         {"--ptt-off-delay-ms", [&](auto& o, auto& v) { a.ptt_off_delay_ms = i_(o, v); }},
         {"--tx-lead-ms", [&](auto& o, auto& v) { a.tx_lead_ms = i_(o, v); }},

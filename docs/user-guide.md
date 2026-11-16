@@ -203,7 +203,7 @@ Start with **Radio interface**. The most common configuration is **Sound card + 
 - **Input**: the sound device that carries the radio's receive audio.
 - **Output**: the sound device that feeds the radio's transmit audio.
 - **Sample rate**: leave it at 48000 unless your device needs something else.
-- **Output volume**: Data2G's transmit level in dB. At 0 dB, the loudest peak of each transmission is at the sound card's full scale. Lower it to bring your radio's drive down, or if your sound card distorts when driven to full scale.
+- **Output volume**: Data2G's transmit level in dB, at most 0. At 0 dB, the loudest peak of each transmission is at the sound card's full scale. Lower it to bring your radio's drive down, or if your sound card distorts when driven to full scale.
 
 For a radio with a built-in USB sound card, both devices usually have "USB Audio" in their names. Pick the radio's device for both, not your computer's speakers and microphone.
 

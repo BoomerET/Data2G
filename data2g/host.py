@@ -89,7 +89,7 @@ BW = {"BW500": 0, "BW1200": 1, "BW2300": 2, "BW2750": 2}
 BW_NAME = modes.BW_NAME
 KISS_BW_CAP = {2400: 2, 500: 0}  # --kiss-bw -> the KISS link's cap
 BLOCK = FS // 10  # audio block: 0.1 s
-VOLUME_DB = (-60.0, 20.0)  # TXPOWER's range: the native GUI's output volume setting
+VOLUME_DB = (-60.0, 0.0)  # TXPOWER's range: the native GUI's output volume setting. Above 0 only clips
 DIAL_TIMEOUT_S = 1.0  # ACCEPT's connection must be up by then (the caller waits ~3.5 s for an answer)
 MAX_RETRIES = 20  # RETRIES' most: fsk16r25 retries go ~13 s apart, so ~4.5 minutes of calling
 ALIVE_S = 60.0  # IAMALIVE on the command port this often, as VARA does
@@ -643,7 +643,7 @@ def serve(a, pa, stop: threading.Event | None = None):
     inp = audio.Capture(pa, nin, a.sample_rate, a.input_device)
     out = audio.Player(pa, nout, a.sample_rate, a.output_device, a.tx_lead_ms / 1000)
     engine.tx_latency_s = a.tx_lead_ms / 1000 + out.s.get_output_latency()  # ponytail: no PTT call time (native measures it)
-    host.output_volume = a.output_volume
+    host.output_volume = min(a.output_volume, VOLUME_DB[1])  # above 0 dB only clips
     stop = stop or threading.Event()
     if threading.current_thread() is threading.main_thread():
         # SIGHUP: a closed terminal; the finally below must still unkey
