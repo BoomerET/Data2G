@@ -17,6 +17,7 @@ Native: arq/engine.hpp (the same step(); with `worker`, the session stage
 on its own thread).
 """
 
+import dataclasses
 import json
 import logging
 import random
@@ -514,18 +515,23 @@ class Engine:
         log.info("TX CW ID %s", call)
         return cwid.CwBurst(cwid.id_text(call), self.cw_wpm)
 
-    def _with_id(self, burst: B.TxBurst, t: float) -> list:
-        """A session's burst -> the bursts to send back to back: an ID first
-        when one is due, or the pending last ID after a closed session's
-        final burst (its DISC_ACK)."""
+    def _with_id(self, burst: B.TxBurst, t: float) -> tuple[list, B.TxBurst]:
+        """A session's burst -> (the bursts to send back to back, the session's
+        among them): an ID first when one is due, or the pending last ID after
+        a closed session's final burst (its DISC_ACK). A nod behind an ID
+        would miss its slot (on air 2026-11-15: 3.1 s past the peer's burst,
+        its window ended at 1.8): it goes as the control it stands for."""
         s = self.session
         if s.state == S.CLOSED and self._id_pending is not None:
             self._id_pending = None
-            return [burst, *self._ids(s, False)]
+            return [burst, *self._ids(s, False)], burst
         if s is self._id_for and self._id_due is not None and t >= self._id_due:
             self._id_due = t + self.id_interval_s
-            return [*self._ids(s, True), burst]
-        return [burst]
+            if burst.nod is not None:
+                log.info("TX b%d: an ID goes ahead, so its nod goes as its control", burst.burst_seq % F.BURST_MOD)
+                burst = dataclasses.replace(burst, nod=None)
+            return [*self._ids(s, True), burst], burst
+        return [burst], burst
 
     def _cw_ready(self, t: float) -> bool:
         return self.cw_id != "off" and self._cw_at is not None and t >= self._cw_at
@@ -612,7 +618,7 @@ class Engine:
                 self._missed_energy()
                 self._id_check(t)
                 if burst is not None:
-                    bursts, main = self._with_id(burst, t), burst
+                    bursts, main = self._with_id(burst, t)
                 elif self._id_pending is not None and t >= self._id_pending[1] and hand_free:
                     bursts, self._id_pending = self._ids(self._id_pending[0], False), None
                 elif self._extra and free:

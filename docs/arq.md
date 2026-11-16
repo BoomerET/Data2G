@@ -269,12 +269,15 @@ everywhere (Python too) for A/B runs.
   burst's (all three are absolute: a nod leaving an old size hint in force shrank every
   data burst at awgn -18 to one codeword). `T_DUPCTL` is carried as an absolute bit.
 - **Where.** Only as the session's direct reply, in the peer's expected slot (§3a
-  `ReplySlot.nod_window`: the last 8 gaps' spread ±0.15 s, at most ±0.6 s about their
-  median); the listener searches there after each of its bursts. On air (2026-11-12,
-  KC2G -> K2CR) one station's TX playout lag varied 0.2-1.3 s, its peer's reply gaps
+  `ReplySlot.nod_window`: ±0.6 s about the last 8 gaps' median); the listener searches
+  there after each of its bursts. On air (2026-11-12, KC2G -> K2CR) one station's TX lag
+  (its burst's end to its rig back on receive) varied 0.2-1.3 s, its peer's reply gaps
   1.35-2.22 s: 11 of 21 nods fell outside the median ±0.15 s and 6 or more were missed,
-  though every one scored 89-176. The primed lock keeps ±0.15 s (a missed slot falls
-  back to the blind lock, and its CPU grows with the width). A nod is
+  though every one scored 89-176. 2026-11-15: the gaps' spread ±0.15 s (capped ±0.6 s)
+  still missed 5 of 35, all early (nods start ~0.15 s sooner than full replies, and 8
+  gaps undersample a ~1 s spread); ±0.6 s about the median caught all 35. The primed
+  lock keeps ±0.15 s (a missed slot falls back to the blind lock, and its CPU grows with
+  the width). A nod is
   never repeated on a timeout (its listener looks in its reply slot only): the master
   polls instead, in full.
 - **Why not polls.** A poll restates a burst its peer may not have heard, and then the
