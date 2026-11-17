@@ -203,8 +203,6 @@ bool listening(int port) {
     return ok;
 }
 
-// (a) of the exit rule: a rigctld that isn't there (a free port, nothing
-// listening). The Keyer's exit sends no PTT off and warns of nothing.
 // The CAT port's speed survives CM108 PTT. Hamlib stores ptt_bitnum over
 // the rig port's parm.serial.rate as well as the PTT port's, so a serial
 // rig used to open at "2 baud": "Invalid configuration" before the PTT
@@ -237,6 +235,8 @@ void test_cm108_keeps_cat_baud() {
     close(master);
 }
 
+// (a) of the exit rule: a rigctld that isn't there (a free port, nothing
+// listening). The Keyer's exit sends no PTT off and warns of nothing.
 void test_unreachable_rigctld_exit() {
     check::current_step = "unreachable rigctld";
     rig::HamlibConfig cfg;

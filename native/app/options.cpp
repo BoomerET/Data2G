@@ -334,7 +334,6 @@ E named(const std::array<rig::Named<E>, N>& table, const std::string& value) {
 
 }  // namespace
 
-// The spellings are rig/config.hpp's name tables, in their order.
 // The PTT methods this platform can key with: CM108 is Linux only (Hamlib's
 // is a hidraw ioctl), so the GUI and web lists don't offer it elsewhere.
 std::vector<std::string> ptt_methods() {
@@ -345,6 +344,7 @@ std::vector<std::string> ptt_methods() {
     return all;
 }
 
+// The spellings are rig/config.hpp's name tables, in their order.
 const std::vector<std::string>& rig_choices(std::string_view field) {
     static const std::map<std::string, std::vector<std::string>, std::less<>> choices = {
         {"rig_data_bits", names(rig::DATA_BITS_NAMES)},

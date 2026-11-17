@@ -115,7 +115,8 @@ void test_cm108() {
     check::is_true(app::check(a).has_value(), "cm108 is refused off Linux");
 #endif
     app::Args bad = a;
-    bad.ptt_gpio = 9;  // a hand-edited settings file
+    bad.ptt_method = "cat";  // the range is checked for every method, and cm108 is refused off Linux first
+    bad.ptt_gpio = 9;        // a hand-edited settings file
     check::equal(app::check(bad).value_or(""), std::string("--ptt-gpio: must be 1 to 8 (GPIO1-GPIO8)"), "pin out of range");
     bad.ptt_gpio = 0;
     check::is_true(app::check(bad).has_value(), "pin 0 refused");
