@@ -335,6 +335,16 @@ E named(const std::array<rig::Named<E>, N>& table, const std::string& value) {
 }  // namespace
 
 // The spellings are rig/config.hpp's name tables, in their order.
+// The PTT methods this platform can key with: CM108 is Linux only (Hamlib's
+// is a hidraw ioctl), so the GUI and web lists don't offer it elsewhere.
+std::vector<std::string> ptt_methods() {
+    std::vector<std::string> all = names(rig::PTT_METHOD_NAMES);
+#ifndef __linux__
+    all.erase(std::remove(all.begin(), all.end(), "cm108"), all.end());
+#endif
+    return all;
+}
+
 const std::vector<std::string>& rig_choices(std::string_view field) {
     static const std::map<std::string, std::vector<std::string>, std::less<>> choices = {
         {"rig_data_bits", names(rig::DATA_BITS_NAMES)},
@@ -343,7 +353,7 @@ const std::vector<std::string>& rig_choices(std::string_view field) {
         {"rig_handshake", names(rig::HANDSHAKE_NAMES)},
         {"rig_dtr", names(rig::LINE_STATE_NAMES)},
         {"rig_rts", names(rig::LINE_STATE_NAMES)},
-        {"ptt_method", names(rig::PTT_METHOD_NAMES)},
+        {"ptt_method", ptt_methods()},
         {"ptt_audio", names(rig::PTT_AUDIO_NAMES)},
         {"rig_mode", names(rig::RIG_MODE_NAMES)},
     };
@@ -383,12 +393,19 @@ bool list_rigs() {
 
 std::optional<std::string> check(const Args& a) {
     // Saved settings come through here too, so every value is checked, not only flags.
+#ifndef __linux__
+    // Hamlib's CM108 keying is a Linux hidraw ioctl; elsewhere it opens a path that isn't there.
+    if (a.rig && a.ptt_method == "cm108") return "--ptt-method cm108: only on Linux for now (choose cat, dtr, rts or vox)";
+#endif
     for (const auto& [flag, field, value] :
          {std::tuple{"--rig-data-bits", "rig_data_bits", &a.rig_data_bits}, {"--rig-stop-bits", "rig_stop_bits", &a.rig_stop_bits},
           {"--rig-parity", "rig_parity", &a.rig_parity}, {"--rig-handshake", "rig_handshake", &a.rig_handshake},
           {"--rig-dtr", "rig_dtr", &a.rig_dtr}, {"--rig-rts", "rig_rts", &a.rig_rts}, {"--ptt-method", "ptt_method", &a.ptt_method},
           {"--ptt-audio", "ptt_audio", &a.ptt_audio}, {"--rig-mode", "rig_mode", &a.rig_mode}}) {
-        const auto& c = rig_choices(field);
+        // Every PTT method name is valid (one this platform can't key with
+        // is refused above, when there's a rig); rig_choices is the menu.
+        static const std::vector<std::string> all_ptt = names(rig::PTT_METHOD_NAMES);
+        const auto& c = std::string_view(field) == "ptt_method" ? all_ptt : rig_choices(field);
         if (std::find(c.begin(), c.end(), *value) == c.end()) {
             std::string all;
             for (const auto& x : c) all += (all.empty() ? "" : ", ") + x;
@@ -397,10 +414,6 @@ std::optional<std::string> check(const Args& a) {
     }
     if (a.rig_baud < 0) return "--rig-baud: must be 0 (the model's) or more";
     if (a.ptt_gpio < 1 || a.ptt_gpio > rig::MAX_CM108_GPIO) return "--ptt-gpio: must be 1 to 8 (GPIO1-GPIO8)";
-#ifndef __linux__
-    // Hamlib's CM108 keying is a Linux hidraw ioctl; elsewhere it opens a path that isn't there.
-    if (a.rig && a.ptt_method == "cm108") return "--ptt-method cm108: only on Linux for now (choose cat, dtr, rts or vox)";
-#endif
     if (a.rig_timeout_ms <= 0) return "--rig-timeout-ms: must be positive";
     if (a.rig_retries < 0) return "--rig-retries: must be 0 or more";
     if (a.rig_poll_interval < 0) return "--rig-poll-interval: must be 0 (key only) or more";

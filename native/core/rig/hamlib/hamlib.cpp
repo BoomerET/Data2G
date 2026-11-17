@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -274,11 +275,18 @@ private:
             case PttMethod::Dtr: set_conf("ptt_type", "DTR"); break;
             case PttMethod::Rts: set_conf("ptt_type", "RTS"); break;
             // GPIO1..8 is Hamlib's ptt_bitnum 0..7; open() found the device.
-            case PttMethod::Cm108:
+            case PttMethod::Cm108: {
                 set_conf("ptt_type", "CM108");
                 set_conf("ptt_pathname", cm108_device_);
+                // Hamlib 4.7.2's conf.c stores ptt_bitnum in the CAT port's
+                // parm union too, over parm.serial.rate: a serial rig would
+                // open at "2 baud" and fail with "Invalid configuration".
+                // Put the speed back (get_conf: none on a network rig).
+                const std::optional<std::string> speed = get_conf("serial_speed");
                 set_conf("ptt_bitnum", std::to_string(config_.ptt_gpio - 1));
+                if (speed) set_conf("serial_speed", *speed);
                 break;
+            }
         }
         if (!config_.ptt_device.empty() && (config_.ptt_method == PttMethod::Dtr || config_.ptt_method == PttMethod::Rts))
             set_conf("ptt_pathname", config_.ptt_device);
@@ -293,6 +301,15 @@ private:
             case RigMode::None: return;
         }
         rig_set_mode(rig_, RIG_VFO_CURR, mode, RIG_PASSBAND_NOCHANGE);
+    }
+
+    // nullopt: a token the backend lacks, or one its port doesn't have.
+    std::optional<std::string> get_conf(const char* name) const {
+        const hamlib_token_t token = rig_token_lookup(rig_, name);
+        if (token == RIG_CONF_END) return std::nullopt;
+        char buf[128] = {};
+        if (rig_get_conf2(rig_, token, buf, sizeof buf) != RIG_OK) return std::nullopt;
+        return std::string(buf);
     }
 
     // A token the backend lacks is skipped (netrigctl has no serial retry).
